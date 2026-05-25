@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Finder AI Pro Prototype</title>
+    <style>
+        /* 🎨 디자인 토큰 정의 (Figma 스타일 시스템 연동) */
+        :root {
+            --primary: #007AFF;
+            --primary-pressed: #0056B3;
+            --success: #34C759;
+            --ai-bg: #F2F0FA;
+            --ai-text: #5856D6;
+            --bg-neutral: #F2F2F7;
+            --white: #FFFFFF;
+            --text-main: #1C1C1E;
+            --text-secondary: #8E8E93;
+            --gray-border: #E5E5EA;
+        }
+
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #AEAEB2;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* 📱 iPhone 표준 뷰포트 프레임 */
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            background-color: var(--white);
+            border-radius: 40px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            position: relative;
+            overflow: hidden;
+            border: 8px solid #333333;
+        }
+
+        /* 공통 상단 스테이터스 바 */
+        .status-bar {
+            height: 44px;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-main);
+            position: absolute;
+            top: 0;
+            width: 100%;
+            z-index: 10;
+            background-color: transparent;
+        }
+
+        /* 공통 하단 네비게이션 바 */
+        .bottom-nav-bar {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 65px;
+            background-color: rgba(255, 255, 255, 0.94);
+            border-top: 1px solid var(--gray-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: 8px;
+            z-index: 10;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item span:first-child {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        /* 뷰 스크린 구조 */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding-top: 44px;
+            padding-bottom: 65px;
+            display: none;
+            flex-direction: column;
+            background-color: var(--white);
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .scrollable-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* 타이포그래피 시스템 */
+        .text-h1 { font-size: 32px; font-weight: 700; color: var(--text-main); line-height: 1.2; }
+        .text-h2 { font-size: 20px; font-weight: 700; color: var(--text-main); line-height: 1.4; }
+        .text-body { font-size: 16px; font-weight: 400; color: var(--text-main); line-height: 1.5; }
+        .text-label { font-size: 14px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
+        .text-caption { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+
+        /* 버튼 컴포넌트 */
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--white);
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary:active { background-color: var(--primary-pressed); }
+
+        .btn-secondary {
+            background-color: var(--bg-neutral);
+            color: var(--primary);
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            text-align: center;
+        }
+
+        .btn-ghost {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            font-weight: 500;
+            padding: 12px;
+            cursor: pointer;
+        }
+
+        /* 공통 헤더 구조 */
+        .screen-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .back-button {
+            font-size: 24px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            color: var(--primary);
+        }
+
+        /* 검색창 컴포넌트 */
+        .search-input-wrapper {
+            position: relative;
+            margin-bottom: 24px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            background-color: var(--bg-neutral);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 18px;
+        }
+
+        /* 칩 그룹 (가로 스크롤) */
+        .chip-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            overflow-x: auto;
+            white-space: nowrap;
+            padding-bottom: 4px;
+        }
+        .chip-group::-webkit-scrollbar { display: none; }
+
+        .toggle-chip {
+            padding: 10px 18px;
+            background-color: var(--bg-neutral);
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .toggle-chip.selected {
+            background-color: var(--primary);
+            color: var(--white);
+        }
+
+        /* 탭 그룹 */
+        .tab-group {
+            display: flex;
+            background-color: var(--bg-neutral);
+            padding: 2px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+        }
+        .tab-item.active {
+            background-color: var(--white);
+            color: var(--text-main);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        /* 리스트 및 카드 아이템 */
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin: 24px 0 12px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .place-card {
+            background-color: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .place-card:active {
+            transform: scale(0.98);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+
+        .type-tag {
+            background-color: var(--bg-neutral);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        /* AI 요약 박스 */
+        .ai-summary-box {
+            background-color: var(--ai-bg);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            border-left: 4px solid var(--ai-text);
+        }
+
+        .ai-text {
+            font-size: 13px;
+            color: var(--text-main);
+            font-weight: 500;
+            line-height: 1.4;
+        }
+
+        /* 성공 알림 배너 */
+        .success-banner {
+            background-color: var(--success);
+            color: var(--white);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);
+        }
+
+        /* 모달 시스템 */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .modal-content {
+            background-color: var(--white);
+            border-radius: 20px;
+            padding: 24px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        /* 리스트 스텝 UI */
+        .step-list { display: flex; flex-direction: column; gap: 12px; margin: 16px 0; }
+        .step-item { display: flex; gap: 12px; align-items: flex-start; }
+        .step-number {
+            background-color: var(--primary);
+            color: var(--white);
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .ssid-highlight {
+            background-color: var(--bg-neutral);
+            border: 2px dashed var(--primary);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+            margin: 12px 0;
+        }
+
+        .recent-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 0;
+            border-bottom: 1px solid var(--gray-border);
+        }
+
+        /* ── 챗봇 ── */
+        .chat-screen-inner { display:flex; flex-direction:column; height:100%; }
+        .chat-header { padding:16px 20px 12px; border-bottom:1px solid var(--gray-border); flex-shrink:0; }
+        .chat-messages { flex:1; overflow-y:auto; padding:16px 20px; display:flex; flex-direction:column; gap:12px; }
+        .chat-messages::-webkit-scrollbar { display:none; }
+        .chat-bubble-row { display:flex; gap:8px; align-items:flex-end; }
+        .chat-bubble-row.user { flex-direction:row-reverse; }
+        .chat-avatar { width:32px; height:32px; border-radius:50%; background:var(--ai-bg); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+        .chat-bubble { max-width:76%; padding:11px 14px; border-radius:18px; font-size:14px; line-height:1.55; }
+        .chat-bubble.ai { background:var(--ai-bg); color:var(--text-main); border-bottom-left-radius:4px; }
+        .chat-bubble.user { background:var(--primary); color:#fff; border-bottom-right-radius:4px; }
+        .chat-time { font-size:10px; color:var(--text-secondary); margin-top:3px; padding:0 4px; }
+        .chat-chips { display:flex; flex-wrap:wrap; gap:8px; padding:10px 20px 12px; flex-shrink:0; border-top:1px solid var(--gray-border); }
+        .chat-chip { padding:8px 14px; background:var(--bg-neutral); border-radius:20px; font-size:13px; font-weight:500; color:var(--text-main); cursor:pointer; border:1px solid var(--gray-border); transition:all .2s; }
+        .chat-chip:hover { background:var(--primary); color:#fff; border-color:var(--primary); }
+        .chat-input-row { display:flex; gap:8px; padding:10px 16px 14px; flex-shrink:0; border-top:1px solid var(--gray-border); background:#fff; }
+        .chat-input { flex:1; padding:11px 16px; background:var(--bg-neutral); border:none; border-radius:22px; font-size:14px; outline:none; font-family:inherit; }
+        .chat-send-btn { width:42px; height:42px; border-radius:50%; background:var(--primary); color:#fff; border:none; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .chat-send-btn:disabled { background:var(--text-secondary); cursor:default; }
+        .chat-typing { display:flex; gap:4px; align-items:center; padding:6px 2px; }
+        .chat-typing span { width:7px; height:7px; background:var(--ai-text); border-radius:50%; animation:tbounce 1.2s infinite ease-in-out; }
+        .chat-typing span:nth-child(2) { animation-delay:.2s; }
+        .chat-typing span:nth-child(3) { animation-delay:.4s; }
+        @keyframes tbounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+    </style>
+</head>
+<body>
+
+<div class="phone-frame">
+    <!-- StatusBar -->
+    <div class="status-bar">
+        <span>9:41</span>
+        <span style="display:flex; gap:4px; align-items:center;">📶 ▓▓ 100%</span>
+    </div>
+
+    <!-- [화면 1] Splash Screen -->
+    <div id="Splash_Screen" class="screen active" style="padding-bottom: 0;">
+        <div class="scrollable-content" style="display: flex; flex-direction: column; justify-content: space-between; padding-top: 100px; padding-bottom: 40px;">
+            <div style="text-align: center;">
+                <div style="font-size: 64px; margin-bottom: 20px;">📶</div>
+                <div class="text-h1" style="margin-bottom: 12px;">WiFi Finder AI</div>
+                <div class="text-body" style="color: var(--text-secondary);">내 주변 무료 와이파이를<br>AI가 빠르게 추천해드려요</div>
+            </div>
+            <button class="btn-primary" onclick="openPermissionModal()">시작하기</button>
+        </div>
+
+        <!-- [Modal] 위치 권한 승인 요청 -->
+        <div id="Modal_Permission" class="modal-overlay">
+            <div class="modal-content">
+                <div style="font-size: 32px; margin-bottom: 12px;">📍</div>
+                <div class="text-h2" style="margin-bottom: 8px;">위치 권한이 필요해요</div>
+                <div class="text-body" style="color: var(--text-secondary); font-size: 14px;">앱 사용을 위해 현재 위치 접근을 허용해주세요.</div>
+                <div class="modal-buttons">
+                    <button class="btn-ghost" style="flex: 1;" onclick="handlePermission(false)">거부</button>
+                    <button class="btn-primary" style="flex: 1;" onclick="handlePermission(true)">허용</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [화면 2] Home Screen -->
+    <div id="Home_Screen" class="screen">
+        <div class="scrollable-content">
+            <div class="text-body" style="margin-top: 10px; color: var(--text-secondary);">안녕하세요! 👋</div>
+            <div id="current-location-text" class="text-h2" style="margin-bottom: 20px;">📍 현재 위치: 서울 마포구</div>
+            
+            <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search-input" placeholder="장소 또는 지역 검색">
+            </div>
+
+            <div class="text-label" style="margin-bottom: 10px;">어떤 목적으로 찾으세요?</div>
+            <div class="chip-group">
+                <div class="toggle-chip" onclick="togglePurposeChip(this, 'study')">📚 공부</div>
+                <div class="toggle-chip" onclick="togglePurposeChip(this, 'tour')">🗺️ 관광</div>
+                <div class="toggle-chip" onclick="togglePurposeChip(this, 'rest')">☕ 휴식</div>
+            </div>
+
+            <button class="btn-primary" style="margin-bottom: 16px;" onclick="navigateToRecommendation()">🤖 AI 추천받기</button>
+
+            <div class="section-title">········ 내 주변 인기 장소 ········</div>
+            <div class="place-card" onclick="openDetailView(1)">
+                <div class="card-header">
+                    <div class="text-body" style="font-weight:700;">📖 마포구립도서관</div>
+                    <span class="type-tag">도서관</span>
+                </div>
+                <div class="text-caption">📍 현재 위치에서 230m</div>
+            </div>
+            <div class="place-card" onclick="openDetailView(2)">
+                <div class="card-header">
+                    <div class="text-body" style="font-weight:700;">🏛 홍대 관광안내소</div>
+                    <span class="type-tag">관광시설</span>
+                </div>
+                <div class="text-caption">📍 현재 위치에서 450m</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- [화면 3] Recommendation Screen -->
+    <div id="Recommendation_Screen" class="screen">
+        <div class="scrollable-content">
+            <div class="screen-header">
+                <button class="back-button" onclick="changeScreen('Home_Screen')">←</button>
+                <div>
+                    <div class="text-h2">AI 추천 결과</div>
+                    <div class="text-caption" id="result-count-text">반경 1km 내 3개 장소 발견</div>
+                </div>
+            </div>
+
+            <div class="tab-group">
+                <div class="tab-item active" onclick="switchSortTab(this, 'distance')">거리순</div>
+                <div class="tab-item" onclick="switchSortTab(this, 'recommend')">추천순</div>
+            </div>
+
+            <div class="chip-group">
+                <div class="toggle-chip selected" onclick="filterCategory('all', this)">전체</div>
+                <div class="toggle-chip" onclick="filterCategory('study', this)">공부</div>
+                <div class="toggle-chip" onclick="filterCategory('tour', this)">관광</div>
+                <div class="toggle-chip" onclick="filterCategory('rest', this)">휴식</div>
+            </div>
+
+            <div id="recommendation-list-container">
+                <!-- JS 동적 렌더링 영역 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- [화면 4] Detail Screen -->
+    <div id="Detail_Screen" class="screen">
+        <div class="scrollable-content">
+            <div class="screen-header">
+                <button class="back-button" onclick="changeScreen('Recommendation_Screen')">←</button>
+                <div class="text-h2" id="detail-header-title">마포구립도서관</div>
+            </div>
+
+            <div class="place-card" style="cursor: default; border-color: var(--primary);">
+                <div class="card-header" style="margin-bottom:12px;">
+                    <div class="text-h2" id="detail-card-title" style="font-size:18px;">📖 마포구립도서관</div>
+                    <span class="type-tag" id="detail-card-tag" style="background-color: var(--primary); color: white;">도서관 · 공공시설</span>
+                </div>
+                <div class="text-body" style="font-size:14px; margin-bottom:6px;" id="detail-card-date">📅 2023년 04월 설치</div>
+                <div class="text-body" style="font-size:14px; margin-bottom:12px;" id="detail-card-address">📍 서울 마포구 월드컵로</div>
+                
+                <div class="ai-summary-box">
+                    <div style="font-size:12px; font-weight:700; color:var(--ai-text); margin-bottom:4px;">🤖 AI 요약</div>
+                    <div class="ai-text" id="detail-card-ai-summary">"조용한 실내 공간으로 공부와 업무에 최적화된 무료 와이파이 장소"</div>
+                </div>
+            </div>
+
+            <div class="section-title">········ 📶 와이파이 연결 ········</div>
+            <div class="text-caption" style="margin-bottom: 6px;">와이파이 이름 (SSID)</div>
+            <div class="ssid-highlight" id="detail-card-ssid">Public_Free_WiFi</div>
+
+            <div class="section-title">········ 📋 연결 방법 ········</div>
+            <div class="step-list">
+                <div class="step-item">
+                    <div class="step-number">1</div>
+                    <div class="text-body" style="font-size:14px;">스마트폰 설정 앱 실행</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">2</div>
+                    <div class="text-body" style="font-size:14px;">Wi-Fi 메뉴 선택</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">3</div>
+                    <div class="text-body" style="font-size:14px;">리스트에서 <strong id="detail-step-ssid" style="color:var(--primary);">Public_Free_WiFi</strong> 선택</div>
+                </div>
+                <div class="step-item">
+                    <div class="step-number">4</div>
+                    <div class="text-body" style="font-size:14px;">연결 완료 버튼 누르기</div>
+                </div>
+            </div>
+
+            <button class="btn-primary" style="margin-top:16px; margin-bottom:12px;" onclick="connectAndGoToSaveScreen()">📍 길찾기 및 와이파이 연결</button>
+            <button class="btn-secondary" style="font-size:14px; padding:12px;" onclick="openChatbotWithMessage('연결이 안 돼요')">연결이 안 되나요? 🤖 AI에게 물어보기</button>
+        </div>
+    </div>
+
+    <!-- [화면 5] Save Screen -->
+    <div id="Save_Screen" class="screen">
+        <div class="scrollable-content">
+            <div class="success-banner">
+                <div style="font-size:24px;">✅</div>
+                <div>
+                    <div class="text-body" style="font-weight:700; color:white;">연결 완료!</div>
+                    <div class="text-caption" id="save-banner-text" style="color:rgba(255,255,255,0.9);">마포구립도서관 와이파이에 연결되었어요</div>
+                </div>
+            </div>
+
+            <div class="text-label" style="margin-bottom:10px;">저장된 장소</div>
+            <div class="place-card" style="border-left: 4px solid var(--success); cursor:default;">
+                <div class="card-header">
+                    <div class="text-body" id="save-card-title" style="font-weight:700;">📖 마포구립도서관</div>
+                    <span class="type-tag">도서관</span>
+                </div>
+                <div class="text-caption" id="save-card-meta" style="margin-bottom:8px;">📍 230m · 📶 Public_Free_WiFi</div>
+                <div class="text-caption" style="display:flex; align-items:center; gap:4px; color:var(--success); font-weight:600;">
+                    <span>🕐</span> <span id="save-card-timestamp">오늘 오후 2:30</span>
+                </div>
+            </div>
+
+            <button class="btn-primary" style="margin-top:16px; margin-bottom:12px;" onclick="alert('데이터가 임시 보관함에 안전하게 저장되었습니다.')">💾 이 장소 저장하기</button>
+            <button class="btn-secondary" style="margin-bottom:24px;" onclick="changeScreen('Home_Screen')">🔍 다른 장소 찾기</button>
+
+            <div class="section-title">········ 최근 이용 기록 ········</div>
+            <div class="recent-list-item">
+                <div>
+                    <div class="text-body" style="font-size:15px; font-weight:600;">📖 마포구립도서관</div>
+                    <div class="text-caption" id="recent-time-1">오늘 오후 2:30</div>
+                </div>
+                <span style="font-size:14px; color:var(--text-secondary);">→</span>
+            </div>
+            <div class="recent-list-item">
+                <div>
+                    <div class="text-body" style="font-size:15px; font-weight:600;">🏛 홍대 관광안내소</div>
+                    <div class="text-caption">어제 오전 11:10</div>
+                </div>
+                <span style="font-size:14px; color:var(--text-secondary);">→</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- [화면 6] Chatbot Screen -->
+    <div id="Chatbot_Screen" class="screen">
+        <div class="chat-screen-inner">
+            <div class="chat-header">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:38px;height:38px;border-radius:50%;background:var(--ai-bg);display:flex;align-items:center;justify-content:center;font-size:20px;">🤖</div>
+                    <div>
+                        <div class="text-body" style="font-weight:700;font-size:15px;">WiFi AI 도우미</div>
+                        <div class="text-caption" style="color:var(--success);font-weight:600;">● 온라인</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-bubble-row ai">
+                    <div class="chat-avatar">🤖</div>
+                    <div>
+                        <div class="chat-bubble ai">안녕하세요! 저는 WiFi Finder AI 도우미예요 😊<br>와이파이 연결 문제나 장소 추천이 필요하시면 편하게 물어보세요!</div>
+                        <div class="chat-time">지금</div>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-chips">
+                <div class="chat-chip" onclick="sendChip('연결이 안 돼요')">🔌 연결이 안 돼요</div>
+                <div class="chat-chip" onclick="sendChip('비밀번호가 필요한가요?')">🔑 비밀번호 필요?</div>
+                <div class="chat-chip" onclick="sendChip('속도가 너무 느려요')">🐢 속도가 느려요</div>
+                <div class="chat-chip" onclick="sendChip('근처 와이파이 장소 추천해줘')">📍 근처 장소 추천</div>
+                <div class="chat-chip" onclick="sendChip('공부하기 좋은 곳 알려줘')">📚 공부 장소</div>
+            </div>
+            <div class="chat-input-row">
+                <input class="chat-input" id="chatInput" type="text" placeholder="메시지를 입력하세요..." onkeydown="if(event.key==='Enter')sendMessage()" />
+                <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BottomNavBar -->
+    <div id="global-bottom-nav" class="bottom-nav-bar" style="display: none;">
+        <div class="nav-item active" onclick="changeScreen('Home_Screen')"><span>🏠</span><span>홈</span></div>
+        <div class="nav-item" onclick="alert('지도 서비스 준비 중입니다.')"><span>🗺️</span><span>지도</span></div>
+        <div class="nav-item" onclick="changeScreen('Recommendation_Screen')"><span>⭐</span><span>추천</span></div>
+        <div class="nav-item" onclick="openChatbot()"><span>💬</span><span>AI 도우미</span></div>
+    </div>
+</div>
+
+<script>
+    // 🧠 원천 데이터 레이어 (API 통신 모사)
+    const placeDataset = [
+        { id: 1, name: '마포구립도서관', type: '도서관', fullType: '도서관 · 공공시설', distance: 230, installDate: '2023년 04월', address: '서울 마포구 월드컵로', ssid: 'Public_Free_WiFi', aiSummary: '"조용한 실내 공간으로 공부와 업무에 최적화된 무료 와이파이 장소"', aiShort: '조용한 공부 공간, 안정적인 인터넷', rank: '🥇', category: 'study', scoreWeight: 98 },
+        { id: 2, name: '홍대 관광안내소', type: '관광시설', fullType: '관광안내소 · 문화시설', distance: 450, installDate: '2022년 11월', address: '서울 마포구 홍익로', ssid: 'Hongdae_Free_Secure', aiSummary: '"관광객이 많이 찾는 무료 인터넷 공간으로 복잡한 구성 없이 즉시 연결 가능"', aiShort: '관광객이 많이 찾는 무료 인터넷 공간', rank: '🥈', category: 'tour', scoreWeight: 85 },
+        { id: 3, name: '망원 한강공원', type: '공원', fullType: '공원 · 녹지시설', distance: 780, installDate: '2024년 01월', address: '서울 마포구 마포나루길', ssid: 'Hangang_Free_WiFi', aiSummary: '"야외 휴식에 적합하도록 고안된 오픈 공간, 넓은 대역폭 제공"', aiShort: '야외 휴식에 적합, 빠른 연결 가능', rank: '🥉', category: 'rest', scoreWeight: 92 }
+    ];
+
+    let currentSelectedCategory = 'all';
+    let currentSortCriteria = 'distance';
+    let activePlaceId = 1;
+    let selectedPurposeFilter = '';
+
+    // 모달 컨트롤
+    function openPermissionModal() {
+        document.getElementById('Modal_Permission').classList.add('active');
+    }
+
+    function handlePermission(isAllowed) {
+        document.getElementById('Modal_Permission').classList.remove('active');
+        const locationText = document.getElementById('current-location-text');
+        
+        if (isAllowed) {
+            locationText.innerText = "📍 현재 위치: 서울 마포구";
+        } else {
+            locationText.innerText = "📍 수동 입력 필요 (수동 모드)";
+        }
+        
+        changeScreen('Home_Screen');
+        document.getElementById('global-bottom-nav').style.display = 'flex';
+    }
+
+    // 🚀 SPA 라우터 코어 로직
+    function changeScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(scr => scr.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+
+        // GNB 하이라이팅 연동
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => item.classList.remove('active'));
+        if (screenId === 'Home_Screen') navItems[0].classList.add('active');
+        if (screenId === 'Recommendation_Screen') navItems[2].classList.add('active');
+    }
+
+    // 메인 홈 필터 토글링
+    function togglePurposeChip(element, categoryCode) {
+        document.querySelectorAll('#Home_Screen .toggle-chip').forEach(ch => ch.classList.remove('selected'));
+        if (selectedPurposeFilter === categoryCode) {
+            selectedPurposeFilter = ''; // 토글 해제
+        } else {
+            element.classList.add('selected');
+            selectedPurposeFilter = categoryCode;
+        }
+    }
+
+    // AI 추천 액션 연계
+    function navigateToRecommendation() {
+        if (selectedPurposeFilter) {
+            currentSelectedCategory = selectedPurposeFilter;
+            const categoryChips = document.querySelectorAll('#Recommendation_Screen .toggle-chip');
+            categoryChips.forEach(chip => {
+                chip.classList.remove('selected');
+                if(chip.getAttribute('onclick').includes(`'${selectedPurposeFilter}'`)) {
+                    chip.classList.add('selected');
+                }
+            });
+        } else {
+            currentSelectedCategory = 'all';
+            document.querySelectorAll('#Recommendation_Screen .toggle-chip').forEach((ch, idx) => {
+                idx === 0 ? ch.classList.add('selected') : ch.classList.remove('selected');
+            });
+        }
+        renderRecommendationList();
+        changeScreen('Recommendation_Screen');
+    }
+
+    // 정렬 탭 스위칭
+    function switchSortTab(tabElement, criteria) {
+        document.querySelectorAll('.tab-item').forEach(tb => tb.classList.remove('active'));
+        tabElement.classList.add('active');
+        currentSortCriteria = criteria;
+        renderRecommendationList();
+    }
+
+    // 카테고리 필터 스위칭
+    function filterCategory(category, chipElement) {
+        document.querySelectorAll('#Recommendation_Screen .toggle-chip').forEach(ch => ch.classList.remove('selected'));
+        chipElement.classList.add('selected');
+        currentSelectedCategory = category;
+        renderRecommendationList();
+    }
+
+    // 🎨 리스트 동적 렌더링
+    function renderRecommendationList() {
+        const container = document.getElementById('recommendation-list-container');
+        container.innerHTML = '';
+
+        let filteredData = placeDataset.filter(item => {
+            return currentSelectedCategory === 'all' || item.category === currentSelectedCategory;
+        });
+
+        if (currentSortCriteria === 'distance') {
+            filteredData.sort((a, b) => a.distance - b.distance);
+        } else if (currentSortCriteria === 'recommend') {
+            filteredData.sort((a, b) => b.scoreWeight - a.scoreWeight);
+        }
+
+        document.getElementById('result-count-text').innerText = `반경 1km 내 ${filteredData.length}개 장소 발견`;
+
+        if (filteredData.length === 0) {
+            container.innerHTML = `<div class="text-caption" style="text-align:center; padding: 40px 0;">조건에 맞는 와이파이 장소가 없습니다.</div>`;
+            return;
+        }
+
+        filteredData.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'place-card';
+            card.onclick = () => openDetailView(item.id);
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="text-body" style="font-weight:700;">${item.rank} ${item.name}</div>
+                    <span class="type-tag">${item.type}</span>
+                </div>
+                <div class="text-caption" style="margin-bottom: 8px;">📍 현재 위치에서 ${item.distance}m</div>
+                <div class="ai-summary-box">
+                    <div class="ai-text">🤖 "${item.aiShort}"</div>
+                </div>
+                <div style="text-align: right; margin-top: 8px;">
+                    <span style="color: var(--primary); font-size: 13px; font-weight: 600;">상세 보기 →</span>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    // 상세 뷰 데이터 매핑
+    function openDetailView(id) {
+        activePlaceId = id;
+        const place = placeDataset.find(p => p.id === id);
+        
+        document.getElementById('detail-header-title').innerText = place.name;
+        document.getElementById('detail-card-title').innerText = `📖 ${place.name}`;
+        document.getElementById('detail-card-tag').innerText = place.fullType;
+        document.getElementById('detail-card-date').innerText = `📅 ${place.installDate} 설치`;
+        document.getElementById('detail-card-address').innerText = `📍 ${place.address}`;
+        document.getElementById('detail-card-ai-summary').innerText = place.aiSummary;
+        document.getElementById('detail-card-ssid').innerText = place.ssid;
+        document.getElementById('detail-step-ssid').innerText = place.ssid;
+
+        changeScreen('Detail_Screen');
+    }
+
+    // 시간 포맷팅 헬퍼
+    function getFormattedTime() {
+        const now = new Date();
+        let hours = now.getHours();
+        const minutes = now.getMinutes();
+        const ampm = hours >= 12 ? '오후' : '오전';
+        hours = hours % 12;
+        hours = hours ? hours : 12; 
+        const minStr = minutes < 10 ? '0' + minutes : minutes;
+        return `오늘 ${ampm} ${hours}:${minStr}`;
+    }
+
+    // 연결 및 완료 화면 전환
+    function connectAndGoToSaveScreen() {
+        const place = placeDataset.find(p => p.id === activePlaceId);
+        const currentTimeString = getFormattedTime();
+
+        document.getElementById('save-banner-text').innerText = `${place.name} 와이파이에 연결되었어요`;
+        document.getElementById('save-card-title').innerText = `📖 ${place.name}`;
+        document.getElementById('save-card-meta').innerText = `📍 ${place.distance}m · 📶 ${place.ssid}`;
+        document.getElementById('save-card-timestamp').innerText = currentTimeString;
+        document.getElementById('recent-time-1').innerText = currentTimeString;
+
+        changeScreen('Save_Screen');
+    }
+
+    // ── 챗봇 로직 ──
+
+    // 규칙 기반 답변 DB
+    const chatbotRules = [
+        {
+            keywords: ['연결', '안 돼', '안돼', '안됨', '안되', '못해', '접속'],
+            answer: '와이파이 연결이 안 될 때는 아래 방법을 순서대로 시도해보세요 🔧\n\n① 스마트폰 WiFi를 껐다가 다시 켜기\n② 비행기 모드를 켰다가 10초 후 해제\n③ 설정 → Wi-Fi → 해당 네트워크 "잊어버리기" 후 재연결\n\n그래도 안 되면 가까운 다른 와이파이 포인트로 이동해보세요!'
+        },
+        {
+            keywords: ['비밀번호', '패스워드', 'password', '암호', '잠금'],
+            answer: '이 앱에서 안내하는 공공 와이파이는 모두 비밀번호 없이 연결 가능해요! 🔓\n\nSSID(와이파이 이름)만 선택하면 자동으로 연결됩니다. 혹시 자물쇠 아이콘이 보이면 해당 포인트는 다른 네트워크일 수 있으니 SSID 이름을 다시 확인해주세요.'
+        },
+        {
+            keywords: ['느려', '느림', '속도', '끊겨', '끊김', '불안정'],
+            answer: '속도가 느릴 때는 이렇게 해보세요 🚀\n\n① 이용자가 몰리는 시간대(오전 10~12시, 오후 1~3시)는 속도가 저하될 수 있어요\n② Wi-Fi를 껐다가 다시 연결하면 더 빠른 채널로 재접속돼요\n③ 라우터(공유기)와의 거리가 멀수록 속도가 느려지니 가까이 이동해보세요!'
+        },
+        {
+            keywords: ['추천', '어디', '장소', '근처', '주변', '찾아', '알려'],
+            answer: '현재 위치(서울 마포구) 근처 추천 와이파이 장소예요 📍\n\n① 📖 마포구립도서관 — 230m (도보 3분)\n② 🏛 홍대 관광안내소 — 450m (도보 6분)\n③ 🌿 망원 한강공원 — 780m (도보 10분)\n\n상세 정보는 홈 화면에서 카드를 탭하면 확인할 수 있어요!'
+        },
+        {
+            keywords: ['공부', '스터디', '조용', '집중', '독서'],
+            answer: '공부하기 좋은 와이파이 장소를 추천해드릴게요 📚\n\n① 📖 마포구립도서관 (230m) — 조용한 실내 공간, 24시간 안정적인 와이파이, 콘센트 제공\n\n도서관은 조용한 환경과 빠른 속도를 모두 갖추고 있어 공부에 최적이에요! 홈 화면에서 바로 길찾기할 수 있어요 🗺️'
+        },
+        {
+            keywords: ['관광', '여행', '구경', '방문'],
+            answer: '관광객분들께 추천하는 장소예요 ✈️\n\n① 🏛 홍대 관광안내소 (450m) — 빠른 속도, 한국어·영어 안내 지원\n② 🌿 망원 한강공원 (780m) — 야외 와이파이, 한강 뷰와 함께!\n\n관광 목적이시라면 홍대 관광안내소가 가장 편리해요 😊'
+        },
+        {
+            keywords: ['ssid', 'wifi', 'wi-fi', '이름', '네트워크 이름'],
+            answer: '앱에 등록된 와이파이 SSID 목록이에요 📡\n\n① Public_Free_WiFi (마포구립도서관)\n② Hongdae_Free_Secure (홍대 관광안내소)\n③ Hangang_Free_WiFi (망원 한강공원)\n\n스마트폰 WiFi 목록에서 위 이름을 찾아 탭하면 연결돼요!'
+        },
+        {
+            keywords: ['감사', '고마워', '고맙', '도움', '해결'],
+            answer: '도움이 되셨다니 다행이에요 😊 빠르고 안정적인 와이파이 연결을 즐기세요! 더 궁금한 점이 있으면 언제든지 물어보세요 📶'
+        },
+        {
+            keywords: ['안녕', '반가워', '처음', '시작', '뭐야', '누구'],
+            answer: '안녕하세요! 저는 WiFi Finder AI 도우미예요 🤖\n\n와이파이 연결 문제 해결, 근처 와이파이 장소 추천, 속도 개선 팁 등 모든 와이파이 관련 질문을 도와드려요. 무엇이 궁금하신가요? 😊'
+        }
+    ];
+
+    // 키워드 매칭으로 답변 찾기
+    function getBotReply(msg) {
+        const lower = msg.toLowerCase();
+        for (const rule of chatbotRules) {
+            if (rule.keywords.some(kw => lower.includes(kw))) {
+                return rule.answer;
+            }
+        }
+        return '죄송해요, 정확히 이해하지 못했어요 🙏\n아래 버튼을 이용하시거나 더 자세히 질문해주시면 도움드릴게요!\n\n예시: "연결이 안 돼요", "근처 장소 추천해줘", "속도가 느려요"';
+    }
+
+    // 현재 시각 반환
+    function getNow() {
+        const d = new Date();
+        let h = d.getHours(), m = d.getMinutes();
+        const ap = h >= 12 ? '오후' : '오전';
+        h = h % 12 || 12;
+        return `${ap} ${h}:${m < 10 ? '0'+m : m}`;
+    }
+
+    // 말풍선 추가
+    function appendBubble(text, role) {
+        const box = document.getElementById('chatMessages');
+        const row = document.createElement('div');
+        row.className = 'chat-bubble-row ' + role;
+        // 줄바꿈 처리
+        const htmlText = text.replace(/\n/g, '<br>');
+        if (role === 'ai') {
+            row.innerHTML = `<div class="chat-avatar">🤖</div><div><div class="chat-bubble ai">${htmlText}</div><div class="chat-time">${getNow()}</div></div>`;
+        } else {
+            row.innerHTML = `<div><div class="chat-bubble user">${htmlText}</div><div class="chat-time" style="text-align:right;">${getNow()}</div></div>`;
+        }
+        box.appendChild(row);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // 타이핑 인디케이터
+    function showTyping() {
+        const box = document.getElementById('chatMessages');
+        const row = document.createElement('div');
+        row.className = 'chat-bubble-row ai';
+        row.id = 'typingBubble';
+        row.innerHTML = `<div class="chat-avatar">🤖</div><div class="chat-bubble ai" style="padding:8px 14px;"><div class="chat-typing"><span></span><span></span><span></span></div></div>`;
+        box.appendChild(row);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function hideTyping() {
+        const el = document.getElementById('typingBubble');
+        if (el) el.remove();
+    }
+
+    // 챗봇 처리 (500ms 딜레이로 자연스럽게)
+    function processChat(msg) {
+        if (!msg.trim()) return;
+        appendBubble(msg, 'user');
+        document.getElementById('chatSendBtn').disabled = true;
+        document.getElementById('chatInput').disabled = true;
+        showTyping();
+
+        setTimeout(() => {
+            hideTyping();
+            const reply = getBotReply(msg);
+            appendBubble(reply, 'ai');
+            document.getElementById('chatSendBtn').disabled = false;
+            document.getElementById('chatInput').disabled = false;
+            document.getElementById('chatInput').focus();
+        }, 700);
+    }
+
+    function sendMessage() {
+        const inp = document.getElementById('chatInput');
+        const msg = inp.value.trim();
+        if (!msg) return;
+        inp.value = '';
+        processChat(msg);
+    }
+
+    function sendChip(msg) {
+        processChat(msg);
+    }
+
+    function openChatbot() {
+        changeScreen('Chatbot_Screen');
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(i => i.classList.remove('active'));
+        navItems[3].classList.add('active');
+    }
+
+    function openChatbotWithMessage(msg) {
+        openChatbot();
+        setTimeout(() => processChat(msg), 300);
+    }
+</script>
+</body>
+</html>
